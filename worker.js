@@ -311,9 +311,10 @@ function validateMediaUrl(rawUrl, env) {
 async function fetchMedia(file, env) {
   const url = validateMediaUrl(file.url, env);
   const response = await fetch(url, {
-    redirect: 'error',
+    redirect: 'manual',
     headers: { Accept: 'image/*' },
   });
+  if (response.status >= 300 && response.status < 400) throw new Error('media URL redirects are not allowed');
   if (!response.ok) throw new Error(`media fetch returned ${response.status}`);
   const contentType = normalizeMime(response.headers.get('content-type'));
   if (!SUPPORTED_IMAGE_TYPES.has(contentType)) throw new Error('media content type is unsupported');
@@ -415,8 +416,11 @@ async function xRequest(env, method, endpoint, options = {}) {
     method,
     headers,
     body,
-    redirect: 'error',
+    redirect: 'manual',
   });
+  if (response.status >= 300 && response.status < 400) {
+    throw new XApiError(`X API redirect ${response.status}`, response.status, null, 0);
+  }
   const raw = await response.text();
   let parsed = null;
   if (raw) {
