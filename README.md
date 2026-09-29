@@ -18,22 +18,21 @@ Cloudflare Worker 服务。Misskey webhook 收到原创帖子后，只有正文�
 - `worker.js`：Worker 入口和同步逻辑。
 - `migrations/0001_init.sql`：D1 初始化 SQL。
 - `wrangler.jsonc`：Cloudflare/GitHub 部署配置。
-- `.github/workflows/deploy.yml`：GitHub Actions 自动测试和部署。
+- `.github/workflows/deploy.yml`：GitHub Actions 手动测试和部署。
 - `test/worker.test.js`：Node 测试。
 
 ## GitHub 部署
 
 ### 1. 创建 GitHub 仓库
 
-把当前目录推送为仓库，建议默认分支为 `main`：
+把当前目录推送为仓库：
 
 ```bash
 git init
 git add .
 git commit -m "feat: add Misskey to X worker"
-git branch -M main
 git remote add origin https://github.com/<owner>/<repository>.git
-git push -u origin main
+git push -u origin HEAD
 ```
 
 ### 2. 创建 Cloudflare D1
@@ -72,11 +71,7 @@ X_ACCESS_TOKEN_SECRET
 
 ### 4. 触发部署
 
-推送 `main` 分支，或在 GitHub Actions 页面手动运行：
-
-```text
-Deploy Cloudflare Worker
-```
+进入 GitHub Actions 页面，选择 `Deploy Cloudflare Worker`，点击 `Run workflow` 手动执行。不会在 push 时自动运行。
 
 工作流会执行语法检查、测试、写入 Worker Secrets、应用 D1 migration，然后调用 Cloudflare 部署。
 
