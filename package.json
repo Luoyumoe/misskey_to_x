@@ -1,0 +1,13 @@
+{
+  "name": "misskey-to-x",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check worker.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.28.1"
+  }
+}

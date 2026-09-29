@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "misskey-to-x",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-29",
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "misskey-to-x",
+      "database_id": "YOUR_D1_DATABASE_ID"
+    }
+  ],
+  "triggers": {
+    "crons": ["*/1 * * * *"]
+  },
+  "vars": {
+    "REQUIRED_TAG": "to_x",
+    "MEDIA_ALLOWED_HOSTS": ""
+  }
+}
