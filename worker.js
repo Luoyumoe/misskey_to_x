@@ -622,6 +622,7 @@ async function processJob(id, env) {
 
     await finishJob(env, id, 'completed');
   } catch (error) {
+    logWorkerError('processJob', error, { id, attempts });
     if (error instanceof XApiError && !error.retryable) {
       await finishJob(env, id, 'dead', String(error.message || error));
       return;
@@ -655,6 +656,17 @@ async function runDueJobs(env) {
   for (const row of result.results || []) {
     await processJob(row.id, env);
   }
+}
+
+function logWorkerError(scope, error, extra = {}) {
+  console.error(JSON.stringify({
+    scope,
+    ...extra,
+    message: String(error?.message || error),
+    status: error?.status ?? null,
+    body: error?.body ?? null,
+    stack: error?.stack ?? null,
+  }));
 }
 
 function jsonResponse(status, value) {
@@ -706,8 +718,33 @@ async function handleWebhook(request, env, ctx) {
     .first();
 
   if (!inserted) return jsonResponse(202, { action: 'duplicate' });
-  ctx.waitUntil(processJob(note.id, env).catch(() => undefined));
+  ctx.waitUntil(
+    processJob(note.id, env).catch((error) => {
+      logWorkerError('waitUntil', error, { id: note.id });
+    }),
+  );
   return jsonResponse(202, { action: 'queued', noteId: note.id });
+}
+
+async function handleStatus(request, env) {
+  if (request.method !== 'GET') return jsonResponse(405, { error: 'method_not_allowed' });
+  const secret = env.MISSKEY_WEBHOOK_SECRET;
+  if (!secret) return jsonResponse(500, { error: 'missing_webhook_secret' });
+  const suppliedSecret = request.headers.get('X-Misskey-Hook-Secret') || '';
+  const secretDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(suppliedSecret));
+  const expectedDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
+  if (!constantTimeEqual(new Uint8Array(secretDigest), new Uint8Array(expectedDigest))) {
+    return jsonResponse(401, { error: 'invalid_webhook_secret' });
+  }
+  const noteId = new URL(request.url).searchParams.get('note_id');
+  if (!noteId) return jsonResponse(400, { error: 'missing_note_id' });
+  const row = await env.DB.prepare(
+    'SELECT status, attempts, last_error, created_at, updated_at, completed_at FROM sync_jobs WHERE id = ?',
+  )
+    .bind(noteId)
+    .first();
+  if (!row) return jsonResponse(404, { error: 'job_not_found' });
+  return jsonResponse(200, row);
 }
 
 export default {
@@ -715,6 +752,9 @@ export default {
     const url = new URL(request.url);
     if (request.method === 'GET' && url.pathname === '/healthz') {
       return jsonResponse(200, { ok: true });
+    }
+    if (url.pathname === '/webhooks/misskey/status') {
+      return handleStatus(request, env);
     }
     if (url.pathname === '/webhooks/misskey') {
       return handleWebhook(request, env, ctx);
